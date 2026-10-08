@@ -1,5 +1,7 @@
 # CodeSage
 
+[![CI](https://github.com/sotream/CodeSage/actions/workflows/ci.yml/badge.svg)](https://github.com/sotream/CodeSage/actions/workflows/ci.yml)
+
 A small, production-oriented RAG system for asking questions about a codebase —
 not an agent, a retrieval pipeline with a clear boundary at each stage.
 
@@ -19,12 +21,24 @@ chase cross-repository references — out of scope for v0.1.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  R[(Python repo)] -->|"ast: function/class chunks"| C[chunker]
+  C --> E[embedder: local model]
+  E --> V[(vector store: numpy + JSON)]
+  Q[question] --> E2[embed query]
+  E2 --> S[retrieve top-k]
+  V --> S
+  S -->|"excerpts + question"| L[Claude]
+  L --> A[answer + sources]
 ```
-chunker.py   -> splits Python files into function/class-level chunks (ast)
-embedder.py  -> embeds chunks locally (sentence-transformers)
-vector_store.py -> in-memory cosine-similarity index, JSON-persisted
-qa.py        -> retrieves top-k chunks, asks Claude to answer using only them
-cli.py       -> `codesage index <path>` / `codesage ask "<question>"`
+
+```
+chunker.py      splits Python files into function/class-level chunks (ast)
+embedder.py     embeds chunks locally (sentence-transformers)
+vector_store.py in-memory cosine-similarity index, JSON-persisted
+qa.py           retrieves top-k chunks, asks Claude to answer using only them
+cli.py          `codesage index <path>` / `codesage ask "<question>"`
 ```
 
 ## Key trade-offs (and why)
@@ -56,6 +70,31 @@ cli.py       -> `codesage index <path>` / `codesage ask "<question>"`
 - Retrieval quality is unverified beyond unit tests of the mechanics
   (nearest-neighbor ranking, persistence). No evaluation set yet.
 
+## Quick start
+
+```bash
+uv sync --all-extras
+export CODESAGE_ANTHROPIC_API_KEY=...   # only needed for `ask`
+uv run codesage index ./path/to/python/repo
+uv run codesage ask "Where is the retry logic?"
+```
+
+Settings (`CODESAGE_*` env vars or `.env`) are in `src/codesage/config.py`. Retrieved excerpts are sent
+to the Anthropic API; see [SECURITY.md](SECURITY.md).
+
+## Decisions
+
+- [0001 AST chunking](docs/adr/0001-ast-chunking.md)
+- [0002 In-memory numpy index](docs/adr/0002-numpy-vector-store.md)
+- [0003 Local embeddings](docs/adr/0003-local-embeddings.md)
+- [0004 Pipeline, not agent](docs/adr/0004-rag-not-agent.md)
+
+## Roadmap
+
+- [ ] Evaluation set (question, expected file/function) with hit-rate@k, to measure retrieval changes.
+- [ ] Incremental indexing keyed by file hash.
+- [ ] Non-Python chunkers (tree-sitter).
+
 ## Development
 
 ```bash
@@ -64,6 +103,11 @@ uv run pytest
 uv run ruff check .
 ```
 
+## About this project
+
+A personal project, shared as is, with no warranty or support. Built with Claude Code; I made the design
+decisions and reviewed and tested the code. The reasoning is in the [ADRs](docs/adr).
+
 ## License
 
-MIT
+[MIT](LICENSE)
