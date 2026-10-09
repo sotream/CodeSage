@@ -1,0 +1,15 @@
+{"question": "What does the chunker do when a Python file has a syntax error?", "path": "codesage/chunker.py", "name": "_chunks_from_source", "tags": ["direct"]}
+{"question": "How does chunk_repository read all the files concurrently?", "path": "codesage/chunker.py", "name": "chunk_repository", "tags": ["direct"]}
+{"question": "How are retrieved chunks formatted into the prompt sent to the model?", "path": "codesage/qa.py", "name": "_build_prompt", "tags": ["direct"]}
+{"question": "Where are chunks embedded off the event loop?", "path": "codesage/embedder.py", "name": "embed_chunks", "tags": ["direct"]}
+{"question": "How is the sentence-transformers model loaded and cached?", "path": "codesage/embedder.py", "name": "_load_model", "tags": ["direct"]}
+{"question": "Which settings can be overridden with environment variables?", "path": "codesage/config.py", "name": "Settings", "tags": ["direct", "class"]}
+{"question": "Which command chunks, embeds and saves the index?", "path": "codesage/cli.py", "name": "index", "tags": ["direct"]}
+{"question": "Scale every row to unit length so a dot product gives angle similarity", "path": "codesage/vector_store.py", "name": "_normalize_rows", "tags": ["paraphrase"]}
+{"question": "What reply is given when nothing relevant was found for the question?", "path": "codesage/qa.py", "name": "generate_answer", "tags": ["paraphrase"]}
+{"question": "What stable key identifies a piece of code in the index?", "path": "codesage/models.py", "name": "chunk_id", "tags": ["paraphrase", "method"]}
+{"question": "Decide whether a syntax tree node is a class or a function", "path": "codesage/chunker.py", "name": "_kind_for_node", "tags": ["paraphrase"]}
+{"question": "How are the most similar chunks ranked for a query vector?", "path": "codesage/vector_store.py", "name": "search", "tags": ["method"]}
+{"question": "How is the index written to disk?", "path": "codesage/vector_store.py", "name": "save", "tags": ["method"]}
+{"question": "What happens when the index file does not exist yet?", "path": "codesage/vector_store.py", "name": "load", "tags": ["method"]}
+{"question": "How are new vectors appended to the existing matrix?", "path": "codesage/vector_store.py", "name": "add", "tags": ["method"]}

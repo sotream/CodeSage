@@ -52,6 +52,19 @@ class EmbeddedChunk(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
+INDEX_FORMAT_VERSION = 2
+
+
+class IndexMeta(BaseModel):
+    """What the index was built from, so `index` can tell what is stale without re-embedding."""
+
+    format_version: int = INDEX_FORMAT_VERSION
+    embedding_model: str = ""
+    chunker_version: int = 0
+    # rel path -> SHA-256 of the raw file bytes
+    files: dict[str, str] = Field(default_factory=dict)
+
+
 class RetrievedChunk(BaseModel):
     """A chunk returned from a similarity search, with its score."""
 

@@ -1,0 +1,18 @@
+{"question": "How does naturalsize format a byte count, with binary or GNU suffixes?", "path": "humanize/filesize.py", "name": "naturalsize", "tags": ["direct"]}
+{"question": "How does intcomma insert thousands separators into a number?", "path": "humanize/number.py", "name": "intcomma", "tags": ["direct"]}
+{"question": "How is the ordinal suffix such as 1st, 2nd or 3rd chosen?", "path": "humanize/number.py", "name": "ordinal", "tags": ["direct"]}
+{"question": "How do I activate a different locale for translations?", "path": "humanize/i18n.py", "name": "activate", "tags": ["direct"]}
+{"question": "How does naturaltime produce strings like 'an hour ago'?", "path": "humanize/time.py", "name": "naturaltime", "tags": ["direct"]}
+{"question": "How does precisedelta break a duration into several units?", "path": "humanize/time.py", "name": "precisedelta", "tags": ["direct"]}
+{"question": "How does naturaldelta turn a timedelta into a readable duration?", "path": "humanize/time.py", "name": "naturaldelta", "tags": ["direct"]}
+{"question": "Turn 1200000 into the text '1.2 million'", "path": "humanize/number.py", "name": "intword", "tags": ["paraphrase"]}
+{"question": "Show 0.5 as a half and 1.25 as one and a quarter", "path": "humanize/number.py", "name": "fractional", "tags": ["paraphrase"]}
+{"question": "Spell out single-digit numbers as words, newspaper style", "path": "humanize/number.py", "name": "apnumber", "tags": ["paraphrase"]}
+{"question": "Display a number as 1.20 x 10^3", "path": "humanize/number.py", "name": "scientific", "tags": ["paraphrase"]}
+{"question": "Show a date as 'yesterday' or 'tomorrow' when it is close to today", "path": "humanize/time.py", "name": "naturalday", "tags": ["paraphrase"]}
+{"question": "Join several words into 'a, b and c'", "path": "humanize/lists.py", "name": "natural_list", "tags": ["paraphrase"]}
+{"question": "Attach SI prefixes like k, M or G to a measurement with its unit", "path": "humanize/number.py", "name": "metric", "tags": ["paraphrase"]}
+{"question": "Limit a value to a floor and a ceiling and mark when it was cut off", "path": "humanize/number.py", "name": "clamp", "tags": ["paraphrase"]}
+{"question": "How are time units ordered so one can be compared as smaller than another?", "path": "humanize/time.py", "name": "__lt__", "tags": ["paraphrase", "method"]}
+{"question": "Which enumeration lists seconds, minutes, hours and days?", "path": "humanize/time.py", "name": "Unit", "tags": ["paraphrase", "class"]}
+{"question": "Pick the correct plural form of a message for a count", "path": "humanize/i18n.py", "name": "_ngettext", "tags": ["paraphrase"]}
