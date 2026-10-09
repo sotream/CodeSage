@@ -13,11 +13,22 @@ swap doesn't ripple into the rest of the pipeline.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
 
-from codesage.models import CodeChunk, EmbeddedChunk, RetrievedChunk
+from codesage.models import (
+    INDEX_FORMAT_VERSION,
+    CodeChunk,
+    EmbeddedChunk,
+    IndexMeta,
+    RetrievedChunk,
+)
+
+
+class IncompatibleIndexError(Exception):
+    """The index file cannot be used as is (old format, corrupt): rebuild it."""
 
 
 class VectorStore:
@@ -26,6 +37,12 @@ class VectorStore:
     def __init__(self) -> None:
         self._chunks: list[CodeChunk] = []
         self._matrix: np.ndarray | None = None
+        self.meta = IndexMeta()
+
+    @property
+    def chunks(self) -> list[CodeChunk]:
+        """A copy, so callers (eval, indexer) cannot desync the chunk list from the matrix."""
+        return list(self._chunks)
 
     def add(self, embedded_chunks: list[EmbeddedChunk]) -> None:
         """Appends embedded chunks to the index."""
@@ -38,35 +55,67 @@ class VectorStore:
         )
         self._chunks.extend(ec.chunk for ec in embedded_chunks)
 
+    def remove_paths(self, paths: set[str]) -> None:
+        """Drops every chunk (and its vector) that belongs to one of `paths`."""
+        if not paths or self._matrix is None:
+            return
+        keep = [i for i, chunk in enumerate(self._chunks) if chunk.path not in paths]
+        self._chunks = [self._chunks[i] for i in keep]
+        self._matrix = self._matrix[keep] if keep else None
+
     def search(self, query_vector: list[float], *, top_k: int) -> list[RetrievedChunk]:
         """Returns the `top_k` chunks most similar to `query_vector`."""
         if self._matrix is None or not self._chunks:
             return []
         query = _normalize_rows(np.array([query_vector], dtype=np.float32))[0]
         scores = self._matrix @ query
-        top_indices = np.argsort(-scores)[:top_k]
+        # Ties are broken by chunk id so ranking does not depend on insertion order: an index
+        # updated incrementally must rank exactly like one rebuilt from scratch.
+        top_indices = sorted(
+            range(len(self._chunks)), key=lambda i: (-float(scores[i]), self._chunks[i].chunk_id)
+        )[:top_k]
         return [
             RetrievedChunk(chunk=self._chunks[i], score=float(scores[i])) for i in top_indices
         ]
 
     def save(self, path: Path) -> None:
-        """Persists the index as JSON. Simple, human-inspectable, fine at this scale."""
+        """Persists the index as JSON, atomically: a crash mid-write cannot corrupt the old file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
+            **self.meta.model_dump(mode="json"),
             "chunks": [chunk.model_dump(mode="json") for chunk in self._chunks],
             "vectors": self._matrix.tolist() if self._matrix is not None else [],
         }
-        path.write_text(json.dumps(payload))
+        tmp = path.with_name(path.name + ".tmp")
+        try:
+            with tmp.open("w") as handle:
+                json.dump(payload, handle)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
     @classmethod
     def load(cls, path: Path) -> VectorStore:
-        """Loads a previously saved index. Returns an empty store if none exists yet."""
+        """Loads a saved index. A missing file gives an empty store; an unusable one raises
+        `IncompatibleIndexError` so callers can rebuild instead of crashing."""
         store = cls()
         if not path.exists():
             return store
-        payload = json.loads(path.read_text())
-        store._chunks = [CodeChunk.model_validate(c) for c in payload["chunks"]]
-        vectors = payload["vectors"]
+        try:
+            payload = json.loads(path.read_text())
+            version = payload.get("format_version")
+            if version != INDEX_FORMAT_VERSION:
+                raise IncompatibleIndexError(
+                    f"index at {path} has format version {version}, expected {INDEX_FORMAT_VERSION}"
+                )
+            store.meta = IndexMeta.model_validate({k: payload[k] for k in IndexMeta.model_fields})
+            store._chunks = [CodeChunk.model_validate(c) for c in payload["chunks"]]
+            vectors = payload["vectors"]
+        except (ValueError, KeyError, AttributeError) as err:
+            raise IncompatibleIndexError(f"index at {path} is unreadable: {err}") from err
         store._matrix = np.array(vectors, dtype=np.float32) if vectors else None
         return store
 

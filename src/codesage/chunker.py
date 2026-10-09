@@ -15,6 +15,10 @@ from pathlib import Path
 
 from codesage.models import ChunkKind, CodeChunk
 
+# Bump when chunk output changes for the same source (boundaries, naming, fallback). The incremental
+# index keys files by content hash only, so without this bump stale chunks would survive silently.
+CHUNKER_VERSION = 1
+
 _TOP_LEVEL_NODE_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
 
@@ -25,7 +29,7 @@ def _kind_for_node(node: ast.AST) -> ChunkKind:
     return ChunkKind.FUNCTION
 
 
-def _chunks_from_source(path: str, source: str) -> list[CodeChunk]:
+def chunk_source(path: str, source: str) -> list[CodeChunk]:
     """Parses one file's source into function/class-level chunks.
 
     Falls back to a single module-level chunk on a `SyntaxError` — better to
@@ -83,6 +87,23 @@ def _read_file(path: Path) -> str:
 _DEFAULT_EXCLUDE_DIRS = frozenset({".git", ".venv", "__pycache__", "node_modules"})
 
 
+def discover_files(
+    root: Path, *, exclude_dirs: frozenset[str] = _DEFAULT_EXCLUDE_DIRS
+) -> list[Path]:
+    """Sorted `.py` files under `root`, so runs are reproducible regardless of filesystem order.
+
+    Only regular files: a directory or a broken symlink named `x.py` would otherwise crash the read.
+
+    Excluded names are matched on the path relative to `root`: the root itself may legitimately
+    live under a directory called `node_modules` or `.venv`.
+    """
+    return sorted(
+        p
+        for p in root.rglob("*.py")
+        if p.is_file() and not any(part in exclude_dirs for part in p.relative_to(root).parts)
+    )
+
+
 async def chunk_repository(
     root: Path, *, exclude_dirs: frozenset[str] = _DEFAULT_EXCLUDE_DIRS
 ) -> list[CodeChunk]:
@@ -92,13 +113,11 @@ async def chunk_repository(
     event loop so a large repository's files are read concurrently instead of
     one at a time, without needing a thread pool the caller has to manage.
     """
-    py_files = [
-        p for p in root.rglob("*.py") if not any(part in exclude_dirs for part in p.parts)
-    ]
+    py_files = discover_files(root, exclude_dirs=exclude_dirs)
 
     async def _process(path: Path) -> list[CodeChunk]:
         source = await asyncio.to_thread(_read_file, path)
-        return _chunks_from_source(str(path.relative_to(root)), source)
+        return chunk_source(str(path.relative_to(root)), source)
 
     results = await asyncio.gather(*(_process(p) for p in py_files))
     return [chunk for file_chunks in results for chunk in file_chunks]
