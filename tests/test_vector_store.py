@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -142,3 +143,40 @@ def test_failed_save_keeps_the_old_index_and_leaves_no_temp_file(
     assert path.read_bytes() == before
     assert [c.name for c in VectorStore.load(path).chunks] == ["old"]
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_load_rejects_an_index_with_fewer_vectors_than_chunks(tmp_path: Path) -> None:
+    path = tmp_path / "i.json"
+    store = VectorStore()
+    store.add(
+        [
+            EmbeddedChunk(chunk=_chunk("a"), vector=[1.0, 0.0]),
+            EmbeddedChunk(chunk=_chunk("b"), vector=[0.0, 1.0]),
+        ]
+    )
+    store.save(path)
+    payload = json.loads(path.read_text())
+    payload["vectors"] = payload["vectors"][:1]
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(IncompatibleIndexError, match="2 chunks but 1 vectors"):
+        VectorStore.load(path)
+
+
+def test_save_syncs_the_directory_so_the_rename_survives_a_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    synced_dirs: list[bool] = []
+    real_fsync = os.fsync
+
+    def spy(fd: int) -> None:
+        synced_dirs.append(stat.S_ISDIR(os.fstat(fd).st_mode))
+        real_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", spy)
+    store = VectorStore()
+    store.add([EmbeddedChunk(chunk=_chunk("a"), vector=[1.0, 0.0])])
+    store.save(tmp_path / "i.json")
+
+    # Once for the data file, then once for the directory that holds the new name.
+    assert synced_dirs == [False, True]

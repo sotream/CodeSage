@@ -93,6 +93,7 @@ class VectorStore:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(tmp, path)
+            _sync_directory(path.parent)
         except BaseException:
             tmp.unlink(missing_ok=True)
             raise
@@ -116,8 +117,24 @@ class VectorStore:
             vectors = payload["vectors"]
         except (ValueError, KeyError, AttributeError) as err:
             raise IncompatibleIndexError(f"index at {path} is unreadable: {err}") from err
+        # Ranking pairs chunk i with vector i; a mismatch would silently return the wrong chunks.
+        if len(vectors) != len(store._chunks):
+            raise IncompatibleIndexError(
+                f"index at {path} has {len(store._chunks)} chunks but {len(vectors)} vectors"
+            )
         store._matrix = np.array(vectors, dtype=np.float32) if vectors else None
         return store
+
+
+def _sync_directory(directory: Path) -> None:
+    """Makes the rename durable: without it a power cut can lose the new file name (POSIX only)."""
+    if os.name != "posix":
+        return
+    fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _normalize_rows(matrix: np.ndarray) -> np.ndarray:
